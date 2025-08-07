@@ -13,24 +13,17 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".add-carrinho").forEach(button => {
     button.addEventListener("click", () => {
       const nome = button.getAttribute("data-nome");
+      const preco = parseFloat(button.getAttribute("data-preco"));
 
       let carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
 
-      carrinho.push(nome);
+      carrinho.push({ nome, preco });
 
       localStorage.setItem("carrinho", JSON.stringify(carrinho));
 
       alert(`${nome} adicionado à sacola!`);
     });
   });
-
-  // Exibir sacola se botão carrinho for clicado (caso tenha modal)
-  const sacola = document.getElementById("sacola");
-  if (document.getElementById("icone-carrinho") && sacola) {
-    document.getElementById("icone-carrinho").addEventListener("click", () => {
-      sacola.style.display = sacola.style.display === "none" ? "block" : "none";
-    });
-  }
 
   // Tooltip WhatsApp
   const tooltip = document.getElementById("tooltip-whatsapp");
@@ -58,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Botão de finalizar compra
-  const btnFinalizar = document.getElementById("finalizar");
+  const btnFinalizar = document.getElementById("finalizar-compra");
   if (btnFinalizar) {
     btnFinalizar.addEventListener("click", () => {
       const carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
@@ -69,12 +62,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const contador = {};
       carrinho.forEach(item => {
-        contador[item] = (contador[item] || 0) + 1;
+        if (contador[item.nome]) {
+          contador[item.nome].quantidade++;
+        } else {
+          contador[item.nome] = {
+            quantidade: 1,
+            preco: item.preco
+          };
+        }
       });
 
       let mensagem = "Olá! Gostaria de comprar os seguintes itens:\n";
-      for (let item in contador) {
-        mensagem += `- ${item} (x${contador[item]})\n`;
+      for (const nome in contador) {
+        mensagem += `- ${nome} (x${contador[nome].quantidade})\n`;
       }
 
       const url = `https://wa.me/5519994740960?text=${encodeURIComponent(mensagem)}`;
@@ -91,31 +91,61 @@ function carregarCarrinho() {
 
   if (carrinho.length === 0) {
     lista.innerHTML = "<p>Seu carrinho está vazio.</p>";
+    atualizarTotal(0);
     return;
   }
 
   const contador = {};
   carrinho.forEach(item => {
-    contador[item] = (contador[item] || 0) + 1;
+    if (contador[item.nome]) {
+      contador[item.nome].quantidade++;
+    } else {
+      contador[item.nome] = {
+        quantidade: 1,
+        preco: item.preco
+      };
+    }
   });
 
-  Object.keys(contador).forEach(nome => {
+  let total = 0;
+
+  for (const nome in contador) {
+    const item = contador[nome];
+    const itemTotal = item.preco * item.quantidade;
+    total += itemTotal;
+
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
-      <span>${nome} (x${contador[nome]})</span>
+      <span>${nome} (x${item.quantidade}) - R$ ${itemTotal.toFixed(2)}</span>
       <button onclick="removerItem('${nome}')">Remover</button>
     `;
     lista.appendChild(div);
-  });
+  }
+
+  atualizarTotal(total);
 }
 
 function removerItem(nome) {
   let carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
-  const index = carrinho.indexOf(nome);
+  // Remove a primeira ocorrência do item com esse nome
+  const index = carrinho.findIndex(item => item.nome === nome);
   if (index > -1) {
     carrinho.splice(index, 1);
   }
   localStorage.setItem("carrinho", JSON.stringify(carrinho));
   carregarCarrinho();
+}
+
+function atualizarTotal(valor) {
+  let totalElem = document.getElementById("total-carrinho");
+  if (!totalElem) {
+    totalElem = document.createElement("div");
+    totalElem.id = "total-carrinho";
+    totalElem.style.fontWeight = "bold";
+    totalElem.style.marginTop = "10px";
+    const lista = document.getElementById("lista-carrinho");
+    lista.parentNode.appendChild(totalElem);
+  }
+  totalElem.textContent = `Total: R$ ${valor.toFixed(2)}`;
 }
